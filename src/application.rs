@@ -157,7 +157,7 @@ fn get_certificate_and_server_key(config: &Config) -> Option<(Secret<String>, Se
 
 pub async fn init_state(config: &Config) -> Result<AppState, Error> {
   // Postgres
-  info!("Preparng to run database migrations...");
+  info!("Preparing to run database migrations...");
   let pg_pool = get_connection_pool(&config.db_settings).await?;
   migrate(&pg_pool).await?;
 
@@ -289,20 +289,30 @@ async fn get_redis_client(redis_uri: &str) -> Result<redis::aio::ConnectionManag
   Ok(manager)
 }
 
+async fn get_aws_s3_region(s3_setting: &S3Setting) -> Result<s3::Region, Error> {
+  if s3_setting.use_minio {
+    return Ok(s3::Region::Custom {
+      region: s3_setting.region.to_owned(),
+      endpoint: s3_setting.minio_url.to_owned(),
+    })
+  }
+
+  if !s3_setting.endpoint.is_empty() {
+    return Ok(s3::Region::Custom {
+      region: s3_setting.region.to_owned(),
+      endpoint: s3_setting.endpoint.to_owned(),
+    })
+  }
+
+  Ok(s3_setting
+      .region
+      .parse::<s3::Region>()
+      .context("failed to parser s3 setting")?)
+}
+
 async fn get_aws_s3_bucket(s3_setting: &S3Setting) -> Result<s3::Bucket, Error> {
   info!("Connecting to S3 bucket with setting: {:?}", &s3_setting);
-  let region = {
-    match s3_setting.use_minio {
-      true => s3::Region::Custom {
-        region: s3_setting.region.to_owned(),
-        endpoint: s3_setting.minio_url.to_owned(),
-      },
-      false => s3_setting
-        .region
-        .parse::<s3::Region>()
-        .context("failed to parser s3 setting")?,
-    }
-  };
+  let region = get_aws_s3_region(s3_setting).await?;
 
   let cred = s3::creds::Credentials {
     access_key: Some(s3_setting.access_key.to_owned()),
@@ -312,20 +322,22 @@ async fn get_aws_s3_bucket(s3_setting: &S3Setting) -> Result<s3::Bucket, Error> 
     expiration: None,
   };
 
-  match s3::Bucket::create_with_path_style(
-    &s3_setting.bucket,
-    region.clone(),
-    cred.clone(),
-    s3::BucketConfiguration::default(),
-  )
-  .await
-  {
-    Ok(_) => Ok(()),
-    Err(e) => match e {
-      s3::error::S3Error::Http(409, _) => Ok(()), // Bucket already exists
-      _ => Err(e),
-    },
-  }?;
+  if !s3_setting.bucket_exists {
+    match s3::Bucket::create_with_path_style(
+      &s3_setting.bucket,
+      region.clone(),
+      cred.clone(),
+      s3::BucketConfiguration::default(),
+    )
+        .await
+    {
+      Ok(_) => Ok(()),
+      Err(e) => match e {
+        s3::error::S3Error::Http(409, _) => Ok(()), // Bucket already exists
+        _ => Err(e),
+      },
+    }?;
+  }
 
   Ok(s3::Bucket::new(&s3_setting.bucket, region.clone(), cred.clone())?.with_path_style())
 }

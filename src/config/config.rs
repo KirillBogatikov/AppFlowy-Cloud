@@ -2,6 +2,7 @@ use secrecy::Secret;
 use serde::Deserialize;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 use std::str::FromStr;
+use actix_router::ResourcePath;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -28,6 +29,8 @@ pub struct S3Setting {
   pub secret_key: Secret<String>,
   pub bucket: String,
   pub region: String,
+  pub endpoint: String,
+  pub bucket_exists: bool,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
@@ -117,6 +120,8 @@ pub fn get_configuration() -> Result<Config, anyhow::Error> {
       secret_key: get_env_var("APPFLOWY_S3_SECRET_KEY", "minioadmin").into(),
       bucket: get_env_var("APPFLOWY_S3_BUCKET", "appflowy"),
       region: get_env_var("APPFLOWY_S3_REGION", ""),
+      endpoint: get_env_var("APPFLOWY_S3_ENDPOINT_URL", ""),
+      bucket_exists: get_env_var("APPFLOWY_S3_BUCKET_EXISTS", "false").parse()?,
     },
     casbin: CasbinSetting {
       pool_size: get_env_var("APPFLOWY_CASBIN_POOL_SIZE", "8").parse()?,
