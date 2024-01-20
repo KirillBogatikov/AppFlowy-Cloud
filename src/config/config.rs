@@ -146,7 +146,7 @@ fn get_s3_endpoint() -> String {
     return custom_endpoint
   }
 
-  let use_minio: bool = get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse()?;
+  let use_minio: Result<bool, _> = get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse();
   if use_minio {
     return get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000");
   }
