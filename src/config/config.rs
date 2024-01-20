@@ -1,3 +1,4 @@
+use std::ops::BitAnd;
 use secrecy::Secret;
 use serde::Deserialize;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
@@ -147,7 +148,7 @@ fn get_s3_endpoint() -> String {
   }
 
   let use_minio: Result<bool, _> = get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse();
-  if use_minio {
+  if use_minio.ok() {
     return get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000");
   }
 
