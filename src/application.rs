@@ -290,13 +290,6 @@ async fn get_redis_client(redis_uri: &str) -> Result<redis::aio::ConnectionManag
 }
 
 async fn get_aws_s3_region(s3_setting: &S3Setting) -> Result<s3::Region, Error> {
-  if s3_setting.use_minio {
-    return Ok(s3::Region::Custom {
-      region: s3_setting.region.to_owned(),
-      endpoint: s3_setting.minio_url.to_owned(),
-    })
-  }
-
   if !s3_setting.endpoint.is_empty() {
     return Ok(s3::Region::Custom {
       region: s3_setting.region.to_owned(),
@@ -322,7 +315,7 @@ async fn get_aws_s3_bucket(s3_setting: &S3Setting) -> Result<s3::Bucket, Error> 
     expiration: None,
   };
 
-  if !s3_setting.bucket_exists {
+  if s3_setting.new_bucket {
     match s3::Bucket::create_with_path_style(
       &s3_setting.bucket,
       region.clone(),

@@ -23,14 +23,12 @@ pub struct CasbinSetting {
 
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct S3Setting {
-  pub use_minio: bool,
-  pub minio_url: String,
   pub access_key: String,
   pub secret_key: Secret<String>,
   pub bucket: String,
   pub region: String,
   pub endpoint: String,
-  pub bucket_exists: bool,
+  pub new_bucket: bool,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
@@ -114,14 +112,12 @@ pub fn get_configuration() -> Result<Config, anyhow::Error> {
     },
     redis_uri: get_env_var("APPFLOWY_REDIS_URI", "redis://localhost:6379").into(),
     s3: S3Setting {
-      use_minio: get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse()?,
-      minio_url: get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000"),
       access_key: get_env_var("APPFLOWY_S3_ACCESS_KEY", "minioadmin"),
       secret_key: get_env_var("APPFLOWY_S3_SECRET_KEY", "minioadmin").into(),
       bucket: get_env_var("APPFLOWY_S3_BUCKET", "appflowy"),
       region: get_env_var("APPFLOWY_S3_REGION", ""),
-      endpoint: get_env_var("APPFLOWY_S3_ENDPOINT_URL", ""),
-      bucket_exists: get_env_var("APPFLOWY_S3_BUCKET_EXISTS", "false").parse()?,
+      endpoint: get_s3_endpoint(),
+      new_bucket: get_env_var("APPFLOWY_S3_NEW_BUCKET", "true").parse()?,
     },
     casbin: CasbinSetting {
       pool_size: get_env_var("APPFLOWY_CASBIN_POOL_SIZE", "8").parse()?,
@@ -142,6 +138,20 @@ fn get_env_var(key: &str, default: &str) -> String {
       default.to_owned()
     },
   }
+}
+
+fn get_s3_endpoint() -> String {
+  let custom_endpoint = get_env_var("APPFLOWY_S3_ENDPOINT_URL", "");
+  if !custom_endpoint.is_empty() {
+    return custom_endpoint
+  }
+
+  let use_minio: bool = get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse()?;
+  if use_minio {
+    return get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000");
+  }
+
+  return String::new()
 }
 
 /// The possible runtime environment for our application.
