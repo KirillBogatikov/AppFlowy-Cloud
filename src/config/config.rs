@@ -1,9 +1,7 @@
-use std::ops::BitAnd;
 use secrecy::Secret;
 use serde::Deserialize;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 use std::str::FromStr;
-use actix_router::ResourcePath;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -147,9 +145,16 @@ fn get_s3_endpoint() -> String {
     return custom_endpoint
   }
 
-  let use_minio: Result<bool, _> = get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse();
-  if use_minio.unwrap() {
-    return get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000");
+  match get_env_var("APPFLOWY_S3_USE_MINIO", "true").parse() {
+    Ok(_) => {
+      return get_env_var("APPFLOWY_S3_MINIO_URL", "http://localhost:9000");
+    }
+    Err(e) => {
+      tracing::warn!(
+        "bad value in environment variable APPFLOWY_S3_USE_MINIO: {}",
+        e,
+      );
+    }
   }
 
   return String::new()
